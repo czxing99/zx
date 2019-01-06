@@ -11,4 +11,5 @@
         <maxWait>60000</maxWait>
         <filters>stat,wall</filters>
     </database>
+
 </xml>
