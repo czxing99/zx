@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.zx.autoCoder.dao.SqlServerMapper" >
+    <resultMap id="BaseResultMap" type="com.zx.autoCoder.po.TableName" >
+        <id column="table_Name" property="tableName" jdbcType="VARCHAR" />
+        <result column="table_type" property="tableType" jdbcType="VARCHAR" />
+    </resultMap>
+    <resultMap id="ColmunMap" type="com.zx.autoCoder.po.ColumnName">
+        <id column="id" property="id" jdbcType="INTEGER" />
+        <result column="columnname" property="name" jdbcType="VARCHAR"/>
+        <result column="datatype" property="type" jdbcType="VARCHAR"/>
+        <result column="length" property="length" jdbcType="INTEGER"/>
+        <result column="isKey" property="isKey" jdbcType="BOOLEAN"/>
+        <result column="commentname" property="comment" jdbcType="VARCHAR"/>
+        <result column="isDataColumn" property="isDataColumn" jdbcType="BOOLEAN"/>
+        <result property="tableName" column="tableName" jdbcType="VARCHAR"/>
+
+    </resultMap>
+    <resultMap id="ColmunMap1" type="com.zx.autoCoder.po.ColumnName">
+        <id column="id" property="id" jdbcType="INTEGER" />
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="type" property="type" jdbcType="VARCHAR"/>
+        <result column="length" property="length" jdbcType="INTEGER"/>
+        <result column="isKey" property="isKey" jdbcType="BOOLEAN"/>
+        <result column="comment" property="comment" jdbcType="VARCHAR"/>
+        <result column="isDataColumn" property="isDataColumn" jdbcType="BOOLEAN"/>
+        <result property="tableName" column="tableName" jdbcType="VARCHAR"/>
+
+    </resultMap>
+
+    <update id="alterTableName">
+        alter table ${originalTableName} rename ${newTableName}
+    </update>
+
+    <update id="truncateTable">
+        truncate table ${tableName}
+    </update>
+
+    <update id="createNewTableAndInsertData">
+        create table ${newTableName} as select * from ${originalTableName}
+    </update>
+    <update id="createDdl">
+        ${ddl}
+    </update>
+
+    <select id="getRecordCount" resultType="int">
+        select count(1) from ${tableName}
+    </select>
+
+    <select id="getCurDataBaseName" resultType="string">
+        select database();
+    </select>
+
+    <select id="isTargetTableExistInDB" resultType="string">
+        SELECT table_name FROM information_schema.tables WHERE table_schema = #{dataBaseName} and TABLE_NAME = #{tableName}
+    </select>
+
+    <select id="getAll" resultMap="BaseResultMap">
+        select table_Name ,table_type from information_schema.tables where table_type = 'BASE TABLE' order by  table_name
+    </select>
+    <select id="getAllAsPostgres" resultMap="BaseResultMap">
+        SELECT  NAME table_Name, REMARKS  table_type
+        FROM SYSIBM.SYSTABLES WHERE TYPE = 'T'  and  CREATOR = 'DB2ADMIN' order by name
+    </select>
+   <select id="getTableColumn" resultMap="ColmunMap1" parameterType="string">
+        select ordinal_position id,
+column_name name,
+data_type type,
+character_maximum_length length,
+(case column_name when 'id' then 1 else 0 end) iskey,
+'' comment,
+'' beanName,
+0  isDataColumn,
+'${tableName}' tableName from information_schema.columns where lower(table_name) = #{tableName};
+
+    </select>
+
+    <select id="getVoucherColumn" resultMap="ColmunMap">
+       select ordinal_position id,
+        b.column_name columnname,
+        data_type datatype,
+        character_maximum_length length,
+        (case when a.colname is null then false  else true end) isKey,
+         '' commentname,
+            true isDataColumn,
+            table_name tableName
+  from information_schema.columns b
+  left join( select pg_attribute.attname as colname,pg_type.typname as typename,pg_constraint.conname as pk_name
+           from pg_constraint
+          inner join pg_class on pg_constraint.conrelid = pg_class.oid
+          inner join pg_attribute on pg_attribute.attrelid = pg_class.oid and  pg_attribute.attnum = pg_constraint.conkey[1]
+          inner join pg_type on pg_type.oid = pg_attribute.atttypid
+         where pg_class.relname = #{tableName}
+           and pg_constraint.contype='p') a on a.colname = b.column_name
+ where table_catalog = 'dbtrain1'
+   and table_schema = 'public'
+   and table_name = #{tableName}
+   union all
+    select ordinal_position id,
+        b.column_name columnname,
+        data_type datatype,
+        character_maximum_length length,
+        (case when a.colname is null then false  else true end) isKey,
+         '' commentname,
+            true isDataColumn,
+            table_name tableName
+  from information_schema.columns b
+  left join( select pg_attribute.attname as colname,pg_type.typname as typename,pg_constraint.conname as pk_name
+           from pg_constraint
+          inner join pg_class on pg_constraint.conrelid = pg_class.oid
+          inner join pg_attribute on pg_attribute.attrelid = pg_class.oid and  pg_attribute.attnum = pg_constraint.conkey[1]
+          inner join pg_type on pg_type.oid = pg_attribute.atttypid
+         where pg_class.relname = #{detailTableName}
+           and pg_constraint.contype='p') a on a.colname = b.column_name
+ where table_catalog = 'dbtrain1'
+   and table_schema = 'public'
+   and table_name = #{detailTableName}
+    </select>
+
+</mapper>

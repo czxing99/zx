@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context-4.0.xsd
+       http://www.springframework.org/schema/tx
+       http://www.springframework.org/schema/tx/spring-tx.xsd http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+    <!-- 启动包扫描功能 -->
+    <context:component-scan base-package="com.zx.service"/>
+    <context:component-scan base-package="com.zx.autoCoder.service"/>
+    <!--1 引入属性文件，在配置中占位使用 -->
+    <context:property-placeholder location="classpath*:db.properties" />
+
+    <!-- 配置数据源-用友 -->
+    <bean id="dataSource" class="org.zx.tools.connection.MyDruidDataSource" init-method="init" destroy-method="close"/>
+  <!--  <bean id="dataSourceMaster" class="com.alibaba.druid.pool.DruidDataSource"
+          init-method="init" destroy-method="close">
+        <property name="url" value="${jdbc.url}" />
+        <property name="username" value="${jdbc.uid}" />
+        <property name="password" value="${jdbc.pwd}" />
+        &lt;!&ndash; 初始化连接大小 &ndash;&gt;
+        <property name="initialSize" value="0" />
+        &lt;!&ndash; 连接池最大使用连接数量 &ndash;&gt;
+        <property name="maxActive" value="20" />
+        &lt;!&ndash; 连接池最大空闲 &ndash;&gt;
+        <property name="maxIdle" value="20" />
+        &lt;!&ndash; 连接池最小空闲 &ndash;&gt;
+        <property name="minIdle" value="0" />
+        &lt;!&ndash; 获取连接最大等待时间 &ndash;&gt;
+        <property name="maxWait" value="60000" />
+    </bean>
+
+    &lt;!&ndash; 配置数据源-crm &ndash;&gt;
+    <bean name="dataSourceSlave" class="com.alibaba.druid.pool.DruidDataSource"
+          init-method="init" destroy-method="close">
+        <property name="url" value="${jdbc2.url}" />
+        <property name="username" value="${jdbc2.uid}" />
+        <property name="password" value="${jdbc2.pwd}" />
+        &lt;!&ndash; 初始化连接大小 &ndash;&gt;
+        <property name="initialSize" value="0" />
+        &lt;!&ndash; 连接池最大使用连接数量 &ndash;&gt;
+        <property name="maxActive" value="20" />
+        &lt;!&ndash; 连接池最大空闲 &ndash;&gt;
+        <property name="maxIdle" value="20" />
+        &lt;!&ndash; 连接池最小空闲 &ndash;&gt;
+        <property name="minIdle" value="0" />
+        &lt;!&ndash; 获取连接最大等待时间 &ndash;&gt;
+        <property name="maxWait" value="60000" />
+    </bean>-->
+    <!--<bean id="dataSource" class="org.zx.tools.connection.ThreadLocalRountingDataSource">
+        <property name="defaultTargetDataSource" ref="dataSourceMaster" />
+        <property name="targetDataSources">
+            <map key-type="org.zx.myenum.DataSources">
+                <entry key="MASTER" value-ref="dataSourceMaster" />
+                <entry key="SLAVE" value-ref="dataSourceSlave" />
+                &lt;!&ndash; 这里还可以加多个dataSource &ndash;&gt;
+            </map>
+        </property>
+    </bean>-->
+
+    <!--sessionFactory-->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <!-- 数据源 -->
+        <property name="dataSource" ref="dataSource"></property>
+        <property name="configLocation" value="classpath:/spring/spring-mybatis.xml"/>
+        <property name="mapperLocations" value="classpath*:mapper/*/*.xml"/>
+    </bean>
+
+    <!--4 自动扫描对象关系映射 -->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <!--指定会话工厂，如果当前上下文中只定义了一个则该属性可省去 -->
+        <property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"/>
+        <!-- 指定要自动扫描接口的基础包，实现接口 -->
+        <property name="basePackage" value="com.zx.dao,com.zx.autoCoder.dao"/>
+    </bean>
+
+    <!--5 声明式事务管理 -->
+    <!--定义事物管理器，由spring管理事务 -->
+    <bean id="transactionManager"
+          class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+    <!-- ================================事务相关控制=================================================    -->
+    <!-- 下面是Spring中Propagation类的事务属性详解：
+    REQUIRED：支持当前事务，如果当前没有事务，就新建一个事务。这是最常见的选择。
+    SUPPORTS：支持当前事务，如果当前没有事务，就以非事务方式执行。
+    MANDATORY：支持当前事务，如果当前没有事务，就抛出异常。
+    REQUIRES_NEW：新建事务，如果当前存在事务，把当前事务挂起。
+    NOT_SUPPORTED：以非事务方式执行操作，如果当前存在事务，就把当前事务挂起。
+    NEVER：以非事务方式执行，如果当前存在事务，则抛出异常。
+    NESTED：支持当前事务，如果当前事务存在，则执行一个嵌套事务，如果当前没有事务，就新建一个事务。
+    3.注意. 这个配置将影响数据存储，必须根据情况选择。   -->
+    <tx:advice id="userTxAdvice" transaction-manager="transactionManager">
+        <tx:attributes>
+            <tx:method name="delete*" propagation="REQUIRED" read-only="false" rollback-for="java.lang.Exception"/>
+            <tx:method name="insert*" propagation="REQUIRED" read-only="false" rollback-for="java.lang.Exception"/>
+            <tx:method name="update*" propagation="SUPPORTS" read-only="false" rollback-for="java.lang.Exception"/>
+            <tx:method name="edit*" propagation="REQUIRED" read-only="false" rollback-for="java.lang.Exception"/>
+            <tx:method name="find*" propagation="SUPPORTS" read-only="true"/>
+            <tx:method name="get*" propagation="SUPPORTS" read-only="true"/>
+            <tx:method name="select*" propagation="SUPPORTS" read-only="true"/>
+            <tx:method name="*"/>
+        </tx:attributes>
+    </tx:advice>
+
+    <!-- aspectj支持自动代理实现AOP功能 -->
+    <aop:aspectj-autoproxy proxy-target-class="true"></aop:aspectj-autoproxy>
+
+
+    <aop:config>
+        <!--把事务控制在Service层, 并把切点和事务属性关联起来
+       execution(* com.jiaoyu.service..*.*(..))
+       ..*.*(..) 全部目录包含子目录的全部OBJECT的全部方法
+    -->
+        <aop:pointcut id="pc" expression="execution(* com.zx.service..*.*(..))" />
+        <aop:advisor pointcut-ref="pc" advice-ref="userTxAdvice" order="1" />
+
+        <!-- <aop:aspect id="LoginAspect" ref="Login" order="2">
+            <aop:pointcut id="pc2" expression="execution(* com.jiaoyu.service..*.*(..))" />
+            <aop:before method="beforeMethod" pointcut-ref="pc2" />
+        </aop:aspect> -->
+
+    </aop:config>
+
+    <!-- druid -->
+    <bean id="stat-filter" class="com.alibaba.druid.filter.stat.StatFilter">
+        <property name="slowSqlMillis" value="3000"/>
+        <property name="logSlowSql" value="true"/>
+        <property name="mergeSql" value="true"/>
+    </bean>
+
+    <bean id="wall-filter" class="com.alibaba.druid.wall.WallFilter">
+        <property name="dbType" value="mysql"/>
+    </bean>
+
+    <!--任务-->
+    <!--<import resource="spring-quartz.xml"/>-->
+
+</beans>
